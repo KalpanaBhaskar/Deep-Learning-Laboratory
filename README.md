@@ -5,7 +5,8 @@ This repository contains my experimental implementations and projects developed 
 ## Repository Structure
 
 * **`1_SLP`**: Implementation and analysis of Single-Layer Perceptron models.
-* *Upcoming modules will be added as experiments progress.*
+* **`2_MLP`**: Implementation and analysis of Multi-Layer Perceptron models.
+* Upcoming labs are uploaded every week
 
 ---
 
