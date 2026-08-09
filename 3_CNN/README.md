@@ -1,4 +1,4 @@
-# CS3807 - Deep Learning Laboratory
+
 ## Experiment 3: Implementation of Convolutional Neural Networks (CNNs) for Image Classification
 
 This repository contains the implementation of a Convolutional Neural Network (CNN) built from scratch using PyTorch to classify images from the CIFAR-10 dataset. The experiment explores core CNN concepts including convolution, padding, stride, pooling, and feature map visualization.
