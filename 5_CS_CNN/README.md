@@ -1,303 +1,148 @@
-# Experiment 5: CNN Training, Regularization, Optimization, Hyperparameter Tuning, Transfer Learning & Cross-Validation
+# MobileNetV2 Optimization and Transfer Learning on Oxford-IIIT Pet Dataset
 
-**Course:** CS3807 – Deep Learning Laboratory  
-**Branch:** B.Tech Artificial Intelligence & Data Science | Semester V  
-**Model:** MobileNetV2 | **Dataset:** Oxford-IIIT Pet Dataset  
-**AY:** 2026–27
+**Course:** CS3807 – Deep Learning Laboratory | **Branch:** B.Tech AI & DS (Semester V)
 
----
-
-## Objective
-
-Systematically study the effect of weight initialization, regularization, optimization, hyperparameter tuning, transfer learning, and cross-validation on image classification using **MobileNetV2** on the **Oxford-IIIT Pet Dataset**.
+This repository contains the implementation and systematic analysis of deep learning techniques—ranging from weight initialization and regularization to hyperparameter tuning and transfer learning. We utilize **MobileNetV2** to perform image classification on the **Oxford-IIIT Pet Dataset**.
 
 ---
 
-## Dataset – Oxford-IIIT Pet Dataset
+## 📌 Project Objective
+
+To systematically study the impact of various deep learning training strategies on model performance. The experiments isolate and evaluate weight initialization, regularization, optimizers, learning rate scheduling, transfer learning (feature extraction vs. fine-tuning), and K-Fold cross-validation.
+
+---
+
+## 🗄️ Dataset Details
 
 | Property | Value |
-|---|---|
-| Classes | 37 cat/dog breeds |
-| Input Size | 224 × 224 × 3 (RGB) |
-| Normalization | Per pretrained model requirements |
+| --- | --- |
+| **Dataset** | Oxford-IIIT Pet Dataset |
+| **Classes** | 37 distinct cat and dog breeds |
+| **Input Size** | 224 × 224 × 3 (RGB) |
+| **Normalization** | Scaled as per MobileNetV2 pretrained requirements |
 
-> The **test set must remain untouched** throughout all hyperparameter selection stages.
-
----
-
-## MobileNetV2 Architecture (Simplified)
-
-```
-Input (224×224×3)
-    → Conv
-    → Depthwise Conv
-    → Pointwise Conv (1×1)
-    → Inverted Residual Blocks (with Linear Bottlenecks)
-    → Global Average Pooling
-    → Dense
-    → Softmax
-```
-
-Key features: depthwise separable convolutions, inverted residuals, linear bottlenecks, Batch Normalization, ReLU6.
+> **Note:** A dedicated test set was held out and remained completely untouched during all hyperparameter selection and cross-validation stages to ensure unbiased final evaluation.
 
 ---
 
-## 1. Weight Initialization
+## 🧠 Model Architecture: MobileNetV2
 
-| Strategy | Description |
-|---|---|
-| Zero | All weights = 0 (problematic — symmetry breaking fails) |
-| Random | Small random values |
-| Xavier / Glorot | $W \sim \mathcal{U}\!\left[-\frac{\sqrt{6}}{\sqrt{n_{in}+n_{out}}},\ \frac{\sqrt{6}}{\sqrt{n_{in}+n_{out}}}\right]$ — suited for sigmoid/tanh |
-| He | $W \sim \mathcal{N}\!\left(0,\ \frac{2}{n_{in}}\right)$ — suited for ReLU |
+The project uses MobileNetV2, chosen for its computational efficiency. Key architectural features include depthwise separable convolutions, inverted residuals, linear bottlenecks, Batch Normalization, and ReLU6 activations.
 
-**Xavier initialization variance:**
+**Simplified Forward Pass:**
+
+```text
+Input (224×224×3) → Conv → Depthwise Conv → Pointwise Conv (1×1) 
+→ Inverted Residual Blocks → Global Average Pooling → Dense → Softmax
+
+```
+
+---
+
+## 🔬 Experiments Conducted
+
+The codebase is modularized to run the following experimental stages, generating comparative plots and logs for each.
+
+### 1. Weight Initialization
+
+We explore how weight initialization impacts symmetry breaking and convergence. The repository contains training/validation curves comparing:
+
+* **Zero:** All weights = 0 (baseline to demonstrate failure).
+* **Random:** Small random values.
+* **Xavier / Glorot:** Suited for sigmoid/tanh activations.
 
 $$\text{Var}(W) = \frac{2}{n_{in} + n_{out}}$$
 
-**He initialization variance:**
+
+* **He:** Suited for ReLU activations.
 
 $$\text{Var}(W) = \frac{2}{n_{in}}$$
 
-**Plots required:**  
-- Plot 1: Training Loss vs. Epoch (one curve per method)  
-- Plot 2: Validation Accuracy vs. Epoch (one curve per method)
 
----
 
-## 2. Regularization & Overfitting
+### 2. Regularization & Overfitting
 
-Overfitting: model performs well on training data but poorly on unseen data (large **generalization gap**).
+To bridge the generalization gap (difference between train and test performance), we evaluate:
 
-| Technique | Effect |
-|---|---|
-| No regularization | Baseline; prone to overfitting |
-| L2 (Weight Decay) | Adds $\lambda \|W\|^2$ penalty to loss; penalizes large weights |
-| Dropout | Randomly zeros activations with probability $p$ during training |
-| Batch Normalization | Normalizes activations; acts as implicit regularizer |
+* **Baseline:** No regularization.
+* **L2 (Weight Decay):** Penalizes large weights by adding a penalty to the loss:
 
-**L2 regularized loss:**
+$$\mathcal{L}_{reg} = \mathcal{L} + \lambda \sum_{l} \Vert{}W^{(l)}\Vert{}^2$$
 
-$$\mathcal{L}_{reg} = \mathcal{L} + \lambda \sum_{l} \|W^{(l)}\|^2$$
 
-**Plots required:**  
-- Plot 3: Train & Validation Accuracy vs. Epoch  
-- Plot 4: Train & Validation Loss vs. Epoch
+* **Dropout:** Randomly zeros activations with probability $p$.
 
----
+### 3. Batch Normalization (BN)
 
-## 3. Batch Normalization
+We evaluate the stabilizing effect of Batch Normalization on training dynamics. For a mini-batch $\{x_1, x_2, \ldots, x_m\}$, BN computes:
 
-For a mini-batch $\{x_1, x_2, \ldots, x_m\}$:
+* **Mean:** $\mu_B = \frac{1}{m} \sum_{i=1}^{m} x_i$
+* **Variance:** $\sigma_B^2 = \frac{1}{m} \sum_{i=1}^{m} (x_i - \mu_B)^2$
+* **Normalized activation:** $\hat{x}_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}}$
+* **Scaled & shifted output:** $y_i = \gamma \hat{x}_i + \beta$ (where $\gamma$ and $\beta$ are learnable).
 
-**Batch mean:**
+### 4. Optimization Algorithms
 
-$$\mu_B = \frac{1}{m} \sum_{i=1}^{m} x_i$$
+The repository tracks convergence time, final loss, and validation accuracy across four optimizers:
 
-**Batch variance:**
-
-$$\sigma_B^2 = \frac{1}{m} \sum_{i=1}^{m} (x_i - \mu_B)^2$$
-
-**Normalized activation:**
-
-$$\hat{x}_i = \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}}$$
-
-**Scaled & shifted output:**
-
-$$y_i = \gamma \hat{x}_i + \beta$$
-
-where $\gamma$ (scale) and $\beta$ (shift) are **learnable parameters**.
-
-**Numerical Example** for $x = [2, 4, 6, 8]$:
-
-$$\mu_B = 5, \quad \sigma_B^2 = 5, \quad \sqrt{\sigma_B^2} \approx 2.236$$
-
-$$\hat{x} \approx [-1.342,\ -0.447,\ 0.447,\ 1.342]$$
-
-With $\gamma = 1,\ \beta = 0$, output $\approx [-1.342,\ -0.447,\ 0.447,\ 1.342]$.
-
-**Plot required:**  
-- Plot 5: Validation Accuracy — With BN vs. Without BN
-
----
-
-## 4. Optimization Algorithms
-
-| Optimizer | Update Rule |
-|---|---|
-| SGD | $W \leftarrow W - \eta \nabla \mathcal{L}$ |
-| Momentum | $v \leftarrow \beta v + \nabla \mathcal{L};\quad W \leftarrow W - \eta v$ |
-| RMSProp | $W \leftarrow W - \frac{\eta}{\sqrt{E[g^2] + \epsilon}}\nabla \mathcal{L}$ |
-| Adam | Combines Momentum + RMSProp with bias correction |
-
-**Adam update:**
+* **SGD:** $W \leftarrow W - \eta \nabla \mathcal{L}$
+* **Momentum:** $v \leftarrow \beta v + \nabla \mathcal{L};\quad W \leftarrow W - \eta v$
+* **RMSProp:** Adapts learning rate based on a moving average of squared gradients.
+* **Adam:** Combines Momentum and RMSProp with bias correction:
 
 $$m_t = \beta_1 m_{t-1} + (1-\beta_1)\nabla\mathcal{L}, \qquad v_t = \beta_2 v_{t-1} + (1-\beta_2)(\nabla\mathcal{L})^2$$
 
+
 $$\hat{m}_t = \frac{m_t}{1-\beta_1^t}, \qquad \hat{v}_t = \frac{v_t}{1-\beta_2^t}$$
+
 
 $$W \leftarrow W - \frac{\eta}{\sqrt{\hat{v}_t}+\epsilon}\hat{m}_t$$
 
-**Plots required:**  
-- Plot 6: Training Loss vs. Epoch (per optimizer)  
-- Plot 7: Validation Accuracy vs. Epoch (per optimizer)
 
-| Optimizer | Final Loss | Best Val. Acc | Epoch to Converge | Time |
-|---|---|---|---|---|
-| SGD | | | | |
-| Momentum | | | | |
-| RMSProp | | | | |
-| Adam | | | | |
 
----
+### 5. Hyperparameter Tuning
 
-## 5. CNN Hyperparameter Tuning
+Hyperparameters were tuned iteratively (changing one at a time). Convolutional output dimensions were calculated via:
 
-**Convolution output size:**
 
 $$O = \left\lfloor \frac{N + 2P - K}{S} \right\rfloor + 1$$
 
-where $N$ = input size, $K$ = kernel size, $P$ = padding, $S$ = stride.
 
-| Hyperparameter | Values Tested |
-|---|---|
-| Learning Rate | 0.001, 0.0001 |
-| Batch Size | 16, 32, 64 |
-| Dropout Rate | 0, 0.25, 0.5 |
-| Optimizer | SGD, Adam |
-| Fine-Tuning LR | $10^{-4}$, $10^{-5}$ |
-| Frozen Layers | Frozen base / Partial unfreezing |
+*(where $N$=input, $K$=kernel, $P$=padding, $S$=stride)*
 
-> **Rule:** Change one hyperparameter at a time; keep all others fixed.
+**Search Space:**
 
-**Plots required:**  
-- Plot 8: Learning Rate vs. Validation Accuracy  
-- Plot 9: Batch Size vs. Validation Accuracy  
-- Plot 10: Dropout Rate vs. Validation Accuracy
+* **Learning Rate:** 0.001, 0.0001
+* **Batch Size:** 16, 32, 64
+* **Dropout Rate:** 0, 0.25, 0.5
 
----
+### 6. Transfer Learning & Fine-Tuning
 
-## 6. Transfer Learning & Fine-Tuning
+Two transfer learning paradigms were implemented:
 
-### Case A – Feature Extraction
-```
-Pretrained MobileNetV2 → Freeze Base → New Classifier (train only)
-```
+* **Case A (Feature Extraction):** Pretrained base frozen; only the new dense classifier is trained.
+* **Case B (Fine-Tuning):** Top layers of the base unfrozen and trained with a very small learning rate ($\eta_{FT} \ll \eta_{base}$) to avoid catastrophic forgetting of learned features.
 
-### Case B – Fine-Tuning
-```
-Pretrained MobileNetV2 → Unfreeze Top Layers → Train with small LR
-```
+### 7. K-Fold Cross-Validation (K=5)
 
-Fine-tuning uses a smaller learning rate ($\eta_{FT} \ll \eta_{base}$) to avoid destroying pretrained features.
+To ensure robustness, the best configuration was validated using 5-Fold CV. Results in the logs are reported as Mean ± Standard Deviation:
 
-**Plots required:**  
-- Plot 11: Validation Accuracy — Feature Extraction vs. Fine-Tuning  
-- Plot 12: Training & Validation Loss — before and after fine-tuning
+* **Mean:** $\bar{A} = \frac{1}{5} \sum_{i=1}^{5} A_i$
+* **SD:** $SD = \sqrt{\frac{1}{5} \sum_{i=1}^{5} (A_i - \bar{A})^2}$
 
 ---
 
-## 7. K-Fold Cross-Validation (K = 5)
+## 📊 Results & Analysis
 
-**Mean accuracy:**
+All generated plots, tables, and analytical inferences can be found in the `results/` directory and the accompanying Jupyter Notebooks.
 
-$$\bar{A} = \frac{1}{5} \sum_{i=1}^{5} A_i$$
+**What's included in the outputs:**
 
-**Standard deviation:**
+* **Plots:** Training/Validation loss and accuracy curves for every experiment (Optimizers, Regularization, Init strategies).
+* **Final Evaluation:** The chosen model trained on the full train set and evaluated on the untouched test set.
+* **Metrics Logs:** Precision, Recall, F1-Score, Parameter counts, and Confusion Matrices.
+* **Inferences & Discussion:** A detailed `report.pdf` (or markdown file) is included in this repository. It provides 2-3 line inferences for every generated plot, explaining the observed trends and answering theoretical questions regarding model behavior, parameter dynamics, and algorithmic choices.
 
-$$SD = \sqrt{\frac{1}{5} \sum_{i=1}^{5} (A_i - \bar{A})^2}$$
-
-Report result as $\bar{A} \pm SD$.
-
-| Configuration | F1 | F2 | F3 | F4 | F5 | Mean ± SD |
-|---|---|---|---|---|---|---|
-| C1 | | | | | | |
-| C2 | | | | | | |
-| C3 | | | | | | |
-| C4 | | | | | | |
-
-**Plot required:**  
-- Plot 13: Mean Validation Accuracy per configuration with error bars (±SD)
-
----
-
-## 8. Final Model Evaluation
-
-After selecting the best configuration via cross-validation:
-1. Retrain on the **complete** training set.
-2. Evaluate on the **held-out test set** (used only once).
-
-| Metric | Value |
-|---|---|
-| Mean CV Accuracy | |
-| CV Standard Deviation | |
-| Test Accuracy | |
-| Precision | |
-| Recall | |
-| F1-score | |
-| Training Time | |
-| Number of Parameters | |
-
-**Plot required:**  
-- Plot 14: Confusion Matrix  
-- Plot 15 *(optional)*: Misclassified images with brief explanation
-
----
-
-## Overall Results Summary
-
-| Configuration | CV Accuracy | SD | Test Accuracy | Training Time |
-|---|---|---|---|---|
-| Baseline | | | | |
-| Best Initialization | | | | |
-| Best Regularization | | | | |
-| Best Optimizer | | | | |
-| Best Hyperparameters | | | | |
-| Fine-Tuned Model | | | | |
-
----
-
-## Inference Requirement
-
-For **every** plot, write a short inference (~2–3 lines) covering:
-1. What does the plot show?
-2. What trend is observed?
-3. Why might the trend occur?
-
----
-
-## Discussion Questions
-
-1. What is the difference between model parameters and hyperparameters?
-2. Why is weight initialization important?
-3. Why can zero initialization be problematic?
-4. Compare Xavier and He initialization.
-5. How do training/validation curves reveal overfitting?
-6. How does Dropout reduce overfitting?
-7. What is the purpose of Batch Normalization?
-8. Explain the Batch Normalization numerical example.
-9. What are the roles of $\gamma$ and $\beta$ in Batch Normalization?
-10. Compare SGD, Momentum, RMSProp and Adam.
-11. What happens when the learning rate is too large / too small?
-12. What is the effect of increasing batch size?
-13. Explain stride and padding.
-14. Why is MobileNetV2 computationally efficient?
-15. What is depthwise separable convolution?
-16. What is transfer learning?
-17. Differentiate feature extraction and fine-tuning.
-18. Why is a smaller learning rate used during fine-tuning?
-19. Why is K-Fold Cross-Validation useful for hyperparameter selection?
-20. Why must the test set remain untouched during tuning?
-21. Why should both mean and standard deviation be reported?
-22. Is the highest validation accuracy always sufficient to select a model?
-
----
-
-## References
-
-1. Goodfellow, Bengio & Courville, *Deep Learning*, MIT Press, 2016.
-2. Ioffe & Szegedy, *Batch Normalization*, ICML, 2015.
-3. Sandler et al., *MobileNetV2: Inverted Residuals and Linear Bottlenecks*, CVPR, 2018.
 4. Parkhi et al., *Cats and Dogs*, CVPR, 2012.
-5. TensorFlow Docs: https://www.tensorflow.org
-6. Keras Docs: https://keras.io
+5. TensorFlow Documentation: [https://www.tensorflow.org](https://www.tensorflow.org)
+6. Keras Documentation: [https://keras.io](https://keras.io)
